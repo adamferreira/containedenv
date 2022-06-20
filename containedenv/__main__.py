@@ -22,4 +22,5 @@ def main():
 if __name__ == "__main__":
     main()
     client = docker.from_env()
-    print(client.containers)
+    print(client.containers.list())
+    print(client.images.list())
