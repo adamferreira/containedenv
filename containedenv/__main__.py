@@ -24,3 +24,9 @@ if __name__ == "__main__":
     client = docker.from_env()
     print(client.containers.list())
     print(client.images.list())
+    img = client.images.list()[0]
+    cnt = client.containers.list()[0]
+    #cnt.attach(stdout = True, stderr = True)
+    _, out = cnt.exec_run("ls /home")
+    print(out.decode('utf-8'))
+    cnt.stop()
