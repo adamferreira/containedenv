@@ -1,6 +1,6 @@
 import argparse
 import docker
-from dockerfile import DockerFile
+from engine import ContainedEnv
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -17,9 +17,8 @@ def get_argparser():
     )
 
 def main():
-    f = DockerFile()
-    f.FROM("Test").RUN(["echo hello word", "mkdir test"])
-    f.dump("test.txt")
+    c = ContainedEnv(None)
+    c.build_image()
     return None
 
 if __name__ == "__main__":
