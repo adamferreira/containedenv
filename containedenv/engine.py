@@ -1,24 +1,44 @@
 import docker
 import os
 from dockerfile import UbuntuDockerFile
+from config import config_dir
 
 class ContainedEnv:
+
+    @property
+    def image(self):
+        return self._image
+
+    @property
+    def container(self):
+        return self._container
+
     def __init__(self, config:dict) -> None:
-        self._dockerfile:UbuntuDockerFile = UbuntuDockerFile()
-        self._workspace = "C:\\Users\\a.ferreiradacosta\\PersonnalProjects\\containedenv\\torm"
+        self._workspace = config_dir()
         self._image = None
         self._container = None
-        self._dockerclient = docker.from_env()
+        self.dockerclient = docker.from_env()
 
-    def build_image(self):
-        file = os.path.join(self._workspace, "Dockerfile.test")
-        #self._dockerfile.dump(
-        #    file
-        #)
-        self._image, _ = self._dockerclient.images.build(
+    def from_image(self, image:str) -> "ContainedEnv":
+        self._image = self.dockerclient.images.get(image)
+        return self
+
+    def build_image(self) -> "ContainedEnv":
+        appname = "testapp"
+        imagename = f"containedenv:{appname}"
+        dockerfilepath = os.path.join(self._workspace, f"Dockerfile.{appname}")
+
+        # TODO check if image already exists (?)
+
+        # Create docker file on file system
+        dockerfile = UbuntuDockerFile()
+        dockerfile.dump(dockerfilepath)
+
+        # Build the actual image
+        self._image, _ = self.dockerclient.images.build(
             path = self._workspace,
-            dockerfile = file,
-            tag = "containedenv:0.0.1",
+            dockerfile = dockerfilepath,
+            tag = imagename,
             # Remove intermediate containers. 
             # The docker build command now defaults to --rm=true, 
             # but we have kept the old default of False to preserve backward compatibility
@@ -26,17 +46,34 @@ class ContainedEnv:
             # Always remove intermediate containers, even after unsuccessful builds
             forcerm = True
         )
-        self._container = self._dockerclient.containers.run(
-            image = "containedenv:0.0.1",
+
+        # If everything went fine, remove docker file from file system
+        if os.path.exists(dockerfilepath): os.unlink(dockerfilepath)
+
+        return self
+
+    def run_container(self) -> "ContainedEnv":
+        appname = "testapp"
+        containername = f"{appname}_cnt"
+        
+        # Find the image name tagged for this container
+        matches = [tag for tag in self.image.tags if tag == f"containedenv:{appname}"]
+        if len(matches) == 0:
+            raise docker.errors.ImageNotFound
+
+        self._container = self.dockerclient.containers.run(
+            image = matches[0],
             #image = self._image.id,
             command = "bash",
-            name = "MyContainer",
-            hostname = "containedenv",
+            name = containername,
+            hostname = appname,
             tty = True,
             detach = True
         )
-        self._container.logs()
-        _, out = self._container.exec_run("ls")
+
+        self.container.logs()
+        _, out = self.container.exec_run("ls")
         print(out.decode('utf-8'))
-        
-        return self._image
+        print(f"Enter this container with \"docker exec -it {containername} bash\"")
+        #self.dockerclient.images.remove(matches[0], force = True)
+        return self

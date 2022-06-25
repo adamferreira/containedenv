@@ -29,7 +29,10 @@ class DockerFile:
 
 
 class UbuntuDockerFile(DockerFile):
-    def __init__(self):
+    def __init__(
+            self,
+            user:str = "root"
+        ):
         super().__init__("ubuntu:latest")
 
         # Run eveything as root
