@@ -13,8 +13,13 @@ class ContainedEnv:
     def container(self):
         return self._container
 
+    @property
+    def congif(self):
+        return self._config
+
     def __init__(self, config:dict) -> None:
         self._workspace = config_dir()
+        self._config = config
         self._image = None
         self._container = None
         self.dockerclient = docker.from_env()
@@ -53,6 +58,9 @@ class ContainedEnv:
         return self
 
     def run_container(self) -> "ContainedEnv":
+        if self.image is None:
+            raise docker.errors.ImageNotFound
+
         appname = "testapp"
         containername = f"{appname}_cnt"
         
