@@ -12,6 +12,6 @@ def load_config(config:str = None):
     __config = config if config is not None else default_config()
     with open(__config, "r") as conffile:
         try:
-            print(yaml.safe_load(conffile))
+            return yaml.safe_load(conffile)
         except yaml.YAMLError as exc:
             print(exc)

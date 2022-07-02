@@ -14,7 +14,7 @@ class ContainedEnv:
         return self._container
 
     @property
-    def congif(self):
+    def config(self):
         return self._config
 
     def __init__(self, config:dict) -> None:

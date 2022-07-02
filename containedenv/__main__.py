@@ -1,6 +1,7 @@
 import argparse
 import docker
 from engine import ContainedEnv
+from config import load_config
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -17,7 +18,9 @@ def get_argparser():
     )
 
 def main():
-    c = ContainedEnv(None)
+    c = ContainedEnv(load_config())
+    print(c.config)
+    return None
     c.build_image().run_container()
     return None
 
