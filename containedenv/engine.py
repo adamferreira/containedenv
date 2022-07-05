@@ -85,3 +85,20 @@ class ContainedEnv:
         print(f"Enter this container with \"docker exec -it {containername} bash\"")
         #self.dockerclient.images.remove(matches[0], force = True)
         return self
+
+
+    def setup_github(self) -> "ContainedEnv":
+        def get_github_credentials(user:str, token:str) -> str:
+            # git config --global credential.helper 'store --file ~/.my-credentials'
+            return f"https://{user}:{token}@github.com"
+
+        assert self.container is not None
+        user = ""
+        token = ""
+        credentials_file = "~/.git-credentials"
+        credentials_line = get_github_credentials(user, token)
+        
+        # Create credentials file
+        self.container.exec_run(f"echo \"{credentials_line}\" > {credentials_file}")
+        # Store credentials into git configuration
+        self.container.exec_run(f"git config --global credential.helper \'store --file {credentials_file}\'")
