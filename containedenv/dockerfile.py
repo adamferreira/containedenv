@@ -1,42 +1,50 @@
 from typing import List, Union
-import docker
+from pyrc.system import ScriptGenerator, OSTYPE
 
-class DockerFile:
-    def __init__(self, image:str):
-        self._statements = []
-        self._from = image
+class DockerFile(ScriptGenerator):
+    def __init__(self, dockerfile:str) -> None:
+        ScriptGenerator.__init__(
+            self,
+            script_path = dockerfile,
+            ostype = OSTYPE.LINUX
+        )
 
-    def dump(self, path:str) -> None:
-        with open(path, "w+") as f:
-            f.write("FROM" + " " + self._from + "\n\n")
-            f.writelines(self._statements)
+    #@overrides
+    def exec_command(self, cmd:str, cwd:str = "", environment:dict = None, event = None):
+        self.script.writelines([
+            f"{cmd}\n",
+            "\n"
+        ])
 
     def FROM(self, image:str) -> "DockerFile":
-        self._from = image
+        self.exec_command(f"{self.FROM.__name__} {image}")
         return self
 
     def RUN(self, statements:Union[str, List[str]]) -> "DockerFile":
         if isinstance(statements, str):
             return self.RUN([statements])
 
-        self._statements.extend([f"{self.RUN.__name__} {s} \n" for s in statements])
-        self._statements.append("")
+        self.exec_command("\n".join([f"{self.RUN.__name__} {s}" for s in statements]))
         return self
 
     def USER(self, user:str) -> "DockerFile":
-        self._statements.append(f"{self.USER.__name__} {user} \n\n")
+        self.exec_command(f"{self.USER.__name__} {user}")
         return self
 
 
 class UbuntuDockerFile(DockerFile):
     def __init__(
             self,
-            user:str = "root"
-        ):
-        super().__init__("ubuntu:latest")
+            dockerfile:str,
+            user:str = "root",
+        ) -> None:
+        super().__init__(dockerfile)
+
+        # From ubuntu 22 
+        self.FROM("ubuntu:22.04")
 
         # Run eveything as root
-        self.USER("root")
+        self.USER(f"{user}")
 
         # Pkg setup
         self.RUN([
