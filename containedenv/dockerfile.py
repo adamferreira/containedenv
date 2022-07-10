@@ -1,57 +1,5 @@
 from typing import List, Union
-from pyrc.system import ScriptGenerator, OSTYPE
-import pyrc.event as pyevent
-
-class DockerFile(ScriptGenerator):
-    def __init__(self, dockerfile:str, print_cmd = True) -> None:
-        ScriptGenerator.__init__(
-            self,
-            script_path = dockerfile,
-            ostype = OSTYPE.LINUX
-        )
-        self._print_cmd = print_cmd
-
-    def default_event(self):
-        return pyevent.CommandPrettyPrintEvent(
-                self, 
-                print_input=True, 
-                print_errors=True, 
-                use_rich=True
-            )
-
-    #@overrides
-    def exec_command(self, cmd:str, cwd:str = "", environment:dict = None, event = None):
-        if event is None and self._print_cmd:
-            return self.exec_command(
-                        cmd = cmd, cwd = cwd,
-                        environment = environment,
-                        event = self.default_event()
-                    )
-        else:
-            event.begin(cmd, cwd, stdin = None, stderr = None, stdout = None)
-            event.end()
-
-
-        self.script.writelines([
-            f"{cmd}\n",
-            "\n"
-        ])
-
-    def FROM(self, image:str) -> "DockerFile":
-        self.exec_command(f"{self.FROM.__name__} {image}")
-        return self
-
-    def RUN(self, statements:Union[str, List[str]]) -> "DockerFile":
-        if isinstance(statements, str):
-            return self.RUN([statements])
-
-        [self.exec_command(f"{self.RUN.__name__} {s}") for s in statements]
-        #self.exec_command("\n".join([f"{self.RUN.__name__} {s}" for s in statements]))
-        return self
-
-    def USER(self, user:str) -> "DockerFile":
-        self.exec_command(f"{self.USER.__name__} {user}")
-        return self
+from pyrc.docker import DockerFile
 
 
 class UbuntuDockerFile(DockerFile):
@@ -77,7 +25,7 @@ class UbuntuDockerFile(DockerFile):
     def install(self, ubuntu_packages:List[str]) -> "UbuntuDockerFile":
         if isinstance(ubuntu_packages, str):
             return self.install([ubuntu_packages])
-            
+
         self.RUN(
             [f"DEBIAN_FRONTEND=noninteractive apt-get install -y {pkg}" for pkg in ubuntu_packages]
         )

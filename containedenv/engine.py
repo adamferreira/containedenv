@@ -3,46 +3,8 @@ from typing import Generator
 import docker
 from dockerfile import UbuntuDockerFile
 from config import config_dir
-from pyrc.system import FileSystem, LocalFileSystem, FileSystemCommand, OSTYPE
-import pyrc.event as pyevent
-
-
-class DockerEngine(FileSystemCommand):
-	"""
-	DockerEngine is will submit evey generated command (FileSystemCommand)
-	to a docker client
-	"""
-	def __init__(self, image = None, container = None) -> None:
-		FileSystemCommand.__init__(self)
-		# Only works with linux style commands for now
-		self.ostype = OSTYPE.LINUX
-		self.image = image
-		self.container = container
-
-	def exec_command(self, cmd:str, cwd:str = "", environment:dict = None, event = None):
-		assert self.container is not None
-
-		exit_code, outputs = self.container.exec_run(
-			cmd = cmd,
-			workdir = cwd,
-			environment = environment,
-			stdout = True, stderr = True, stdin = False,
-			demux = False, # Return stdout and stderr separately,
-			stream = True
-		)
-		srdoutflux = outputs # Output is a Generator type (isinstance(outputs, Generator) == 1)
-		event = pyevent.CommandPrettyPrintEvent(self, print_input=True, print_errors=True) if event is None else event
-		event.begin(cmd, cwd, stdin = None, stderr = None, stdout = srdoutflux)
-		return event.end() 
-
-	#@overrides Necessary for FileSystem.__init__(self) as we overrides ostype
-	def platform(self) -> 'dict[str:str]':
-		return {
-			"system" : FileSystem.os_to_str(FileSystem.ostype),
-			"platform" : "unknown"
-		}
-
-		
+from pyrc.system import LocalFileSystem
+from pyrc.docker import DockerEngine
 
 class ContainedEnv:
 
