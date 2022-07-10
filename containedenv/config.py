@@ -15,3 +15,12 @@ def load_config(config:str = None):
             return yaml.safe_load(conffile)
         except yaml.YAMLError as exc:
             print(exc)
+
+def appname(config) -> str:
+    return "testapp"
+
+def imagename(config) -> str:
+    return f"containedenv:{appname(config)}"
+
+def containername(config) -> str:
+    return f"{appname(config)}_cnt"

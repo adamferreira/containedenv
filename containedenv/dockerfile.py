@@ -1,4 +1,4 @@
-from typing import List, Union
+from typing import List
 from pyrc.docker import DockerFile
 
 
