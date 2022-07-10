@@ -25,7 +25,8 @@ setuptools.setup(
     python_requires=">=3.0",
     install_requires=[
        "pyyaml",
-       "docker"
+       "docker",
+       "pyrc @ git+https://github.com/adamferreira/pyrc.git@master"
    ],
     entry_points= {
             "console_scripts": [

@@ -1,9 +1,7 @@
 import argparse
-from distutils.command import config
-import docker, os
-from dockerfile import UbuntuDockerFile
+import docker
 from engine import ContainedEnv
-from config import load_config, config_dir
+from config import load_config
 
 def get_argparser():
     parser = argparse.ArgumentParser(
@@ -21,14 +19,12 @@ def get_argparser():
 
 def main():
     c = ContainedEnv(load_config())
-    print(c.config)
-    return None
     c.build_image().run_container()
+    c.setup_github()
     return None
 
 if __name__ == "__main__":
-    #main()
-    dockerfile = UbuntuDockerFile(os.path.join(config_dir(), f"Dockerfile.test"))
+    main()
     exit(-1)
 
 
