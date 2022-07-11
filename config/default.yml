@@ -1,2 +1,20 @@
-test:
-  test: "test"
+app:
+    name: containedenv
+    user: cteuser
+
+install:
+    essentials:
+        packages: 
+            - git
+            - vim
+
+profiles:
+    containedenv:
+        user: cteuser
+    
+
+projects:
+    containedenv:
+        sources:
+            - https://github.com/adamferreira/containedenv.git
+        
