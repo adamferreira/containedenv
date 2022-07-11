@@ -1,7 +1,7 @@
 import argparse
 import docker
-from engine import ContainedEnv
-from config import load_config
+from containedenv.engine import ContainedEnv
+from containedenv.config import load_config
 
 def get_argparser():
     parser = argparse.ArgumentParser(

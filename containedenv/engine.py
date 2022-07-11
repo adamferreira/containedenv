@@ -1,9 +1,8 @@
-from email.mime import image
 import docker
-from dockerfile import UbuntuDockerFile
-from config import *
 from pyrc.system import LocalFileSystem
 from pyrc.docker import DockerEngine
+from containedenv.dockerfile import UbuntuDockerFile
+from containedenv.config import *
 
 class ContainedEnv:
 
