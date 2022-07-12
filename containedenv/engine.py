@@ -19,36 +19,66 @@ class ContainedEnv:
 		return self._config
 
 	def __init__(self, config:dict) -> None:
+		# protected
 		self._local = LocalFileSystem()
-		self._workspace = config_dir()
 		self._config = config
-		self.dockerclient = docker.from_env()
 		self._engine = DockerEngine()
+		# public
+		self.dockerclient = docker.from_env()
+
+	def __build_dockerfile(self):
+		# Create the dockerfile
+		dockerfile = UbuntuDockerFile(
+			self._local.join(config_dir(), f"Dockerfile.{appname(self.config)}")
+		)
+		# install packages
+		dockerfile.install("sudo")
+		self.__install(dockerfile)
+
+		# create the user workspace
+		username = user(self._config)
+		dockerfile.exec_command(f"# create workspace for sudo user {username}")
+		# new user belongs to sudo group
+		dockerfile.RUN(f"useradd -r -m -U -G sudo -d /home/{username} -s /bin/bash -c \"Docker SGE user\" {username}")
+		# remove sudo password for {username} (as root)
+		dockerfile.exec_command(f"# remove sudo password for {username} (as root)")
+		dockerfile.RUN(f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}")
+		#dockerfile.RUN(f"usermod -aG sudo {username}")
+		dockerfile.RUN(f"chown -R {username} /home/{username}")
+		dockerfile.RUN(f"mkdir /home/{username}/projects")
+		dockerfile.RUN(f"chown -R {username} /home/{username}/*")
+
+		# last line
+		dockerfile.ENTRYPOINT("/bin/bash")
+		# destructor of dockerfile will close the file
+		return dockerfile.script.name
+
+	def __install(self, dockerfile):
+		for confname, conf in self._config["install"].items():
+			dockerfile.exec_command(f"# packages for configuration {confname}")
+			dockerfile.install(conf["packages"])
+
+
 
 	def from_image(self, image:str) -> "ContainedEnv":
 		self._image = self.dockerclient.images.get(image)
 		return self
 
-	def build_image(self, regenerate = False) -> "ContainedEnv":
+	def build_image(self, regenerate = True) -> "ContainedEnv":
 		image = None
 		try:
 			image = self.dockerclient.images.get(imagename(self.config))
 		except:
 			image = None
 
-		if image is None:
-			dockerfilepath = self._local.join(self._workspace, f"Dockerfile.{appname(self.config)}")
-			# Create docker file on file system
-			dockerfile = UbuntuDockerFile(dockerfilepath)
-			dockerfile.install("git")
-			dockerfile.ENTRYPOINT("/bin/bash")
-			# Trigger write (TODO do better)
-			del dockerfile
+		if image is None or regenerate:
+			# create the docker file
+			dockerfile_path = self.__build_dockerfile()
 
 			# Build the actual image
 			self._engine.image, _ = self.dockerclient.images.build(
-				path = self._workspace,
-				dockerfile = dockerfilepath,
+				path = config_dir(),
+				dockerfile = dockerfile_path,
 				tag = imagename(self.config),
 				# Remove intermediate containers. 
 				# The docker build command now defaults to --rm=true, 
@@ -59,7 +89,7 @@ class ContainedEnv:
 			)
 
 			# If everything went fine, remove docker file from file system
-			if self._local.isfile(dockerfilepath): self._local.unlink(dockerfilepath)
+			if self._local.isfile(dockerfile_path): self._local.unlink(dockerfile_path)
 		else:
 			self._engine.image = image
 
@@ -99,7 +129,7 @@ class ContainedEnv:
 			self._engine.container = container
 
 		self.container.logs()
-		print(f"Enter this container with \"docker exec -it {containername(self.config)} bash\"")
+		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
 		#self.dockerclient.images.remove(matches[0], force = True)
 		return self
 

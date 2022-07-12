@@ -25,8 +25,14 @@ class UbuntuDockerFile(DockerFile):
     def install(self, ubuntu_packages:List[str]) -> "UbuntuDockerFile":
         if isinstance(ubuntu_packages, str):
             return self.install([ubuntu_packages])
-
-        self.RUN(
-            [f"DEBIAN_FRONTEND=noninteractive apt-get install -y {pkg}" for pkg in ubuntu_packages]
-        )
+        
+        if len(ubuntu_packages) == 1:
+            self.RUN(
+                f"DEBIAN_FRONTEND=noninteractive apt-get install -y {ubuntu_packages[0]}" 
+            )
+        else:
+            install = " \ \n".join(ubuntu_packages)
+            self.RUN(
+                f"DEBIAN_FRONTEND=noninteractive apt-get install -y \ \n{install}" 
+            )
         return self

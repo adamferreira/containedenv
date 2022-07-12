@@ -18,23 +18,11 @@ def get_argparser():
     )
 
 def main():
+
     c = ContainedEnv(load_config())
     c.build_image().run_container()
-    c.setup_github()
+    #c.setup_github()
     return None
 
 if __name__ == "__main__":
     main()
-    exit(-1)
-
-
-    
-    client = docker.from_env()
-    print(client.containers.list())
-    print(client.images.list())
-    img = client.images.list()[0]
-    cnt = client.containers.list()[0]
-    #cnt.attach(stdout = True, stderr = True)
-    _, out = cnt.exec_run("ls /home")
-    print(out.decode('utf-8'))
-    #cnt.stop()

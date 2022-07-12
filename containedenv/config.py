@@ -17,7 +17,10 @@ def load_config(config:str = None):
             print(exc)
 
 def appname(config) -> str:
-    return "testapp"
+    return config["app"]["name"]
+
+def user(config) -> str:
+    return config["app"]["user"]
 
 def imagename(config) -> str:
     return f"containedenv:{appname(config)}"
