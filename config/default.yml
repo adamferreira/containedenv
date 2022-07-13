@@ -2,19 +2,22 @@ app:
     name: containedenv
     user: cteuser
 
+profiles:
+    containedenv:
+        user: cteuser
+    github:
+        user: cteuser
+        token: "0000-0000"
+
 install:
     essentials:
         packages: 
             - git
-            - vim
-
-profiles:
-    containedenv:
-        user: cteuser
-    
+            - vim    
 
 projects:
     containedenv:
         sources:
             - https://github.com/adamferreira/containedenv.git
+        scmprofile: github
         

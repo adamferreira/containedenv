@@ -26,6 +26,12 @@ class ContainedEnv:
 		# public
 		self.dockerclient = docker.from_env()
 
+	def home(self) -> str:
+		return f"/home/{user(self._config)}"
+
+	def projects(self) -> str:
+		return f"{self.home()}/projects"
+
 	def __build_dockerfile(self):
 		# Create the dockerfile
 		dockerfile = UbuntuDockerFile(
@@ -33,30 +39,53 @@ class ContainedEnv:
 		)
 		# install packages
 		dockerfile.install("sudo")
-		self.__install(dockerfile)
+		self.__install_packages(dockerfile)
 
 		# create the user workspace
 		username = user(self._config)
 		dockerfile.exec_command(f"# create workspace for sudo user {username}")
 		# new user belongs to sudo group
-		dockerfile.RUN(f"useradd -r -m -U -G sudo -d /home/{username} -s /bin/bash -c \"Docker SGE user\" {username}")
+		dockerfile.RUN(f"useradd -r -m -U -G sudo -d {self.home()} -s /bin/bash -c \"Docker SGE user\" {username}")
 		# remove sudo password for {username} (as root)
 		dockerfile.exec_command(f"# remove sudo password for {username} (as root)")
 		dockerfile.RUN(f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}")
 		#dockerfile.RUN(f"usermod -aG sudo {username}")
-		dockerfile.RUN(f"chown -R {username} /home/{username}")
-		dockerfile.RUN(f"mkdir /home/{username}/projects")
-		dockerfile.RUN(f"chown -R {username} /home/{username}/*")
+		dockerfile.RUN(f"chown -R {username} {self.home()}")
+		dockerfile.RUN(f"mkdir {self.projects()}")
+		dockerfile.RUN(f"chown -R {username} {self.home()}/*")
 
 		# last line
 		dockerfile.ENTRYPOINT("/bin/bash")
 		# destructor of dockerfile will close the file
 		return dockerfile.script.name
 
-	def __install(self, dockerfile):
+	def __install_packages(self, dockerfile):
 		for confname, conf in self._config["install"].items():
 			dockerfile.exec_command(f"# packages for configuration {confname}")
 			dockerfile.install(conf["packages"])
+
+	def __install_projects(self):
+		assert self._engine.container is not None
+		# Install projects
+		for projname, project in self._config["projects"].items():
+			# Get source code manager profile
+			if project["scmprofile"] in self._config["profiles"].keys():
+				scmprofile = self._config["profiles"][project["scmprofile"]]
+			else:
+				# TODO : call self.__del__ to delete temp folder
+				raise RuntimeError("Cannot find profile " + project["scmprofile"])
+
+			# clone repositories
+			for repo in project["sources"]:
+				self._engine.exec_command(
+					cmd = f"git clone {repo}",
+					cwd = self.projects() 
+				)
+				# TODO point this project to the corresponding global profile git credential
+
+		# TODO : have one git credential by profiles
+		def __install_config(self):
+			return NotImplemented
 
 
 
