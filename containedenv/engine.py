@@ -75,7 +75,7 @@ class ContainedEnv:
 				# TODO : call self.__del__ to delete temp folder
 				raise RuntimeError("Cannot find profile " + project["scmprofile"])
 
-			# clone repositories
+			# clone repositories (if git in name, else copy local path (?))
 			for repo in project["sources"]:
 				self._engine.exec_command(
 					cmd = f"git clone {repo}",
