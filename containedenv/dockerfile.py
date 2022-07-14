@@ -31,8 +31,8 @@ class UbuntuDockerFile(DockerFile):
                 f"DEBIAN_FRONTEND=noninteractive apt-get install -y {ubuntu_packages[0]}" 
             )
         else:
-            install = " \ \n".join(ubuntu_packages)
+            install = " \ \n\t".join(ubuntu_packages)
             self.RUN(
-                f"DEBIAN_FRONTEND=noninteractive apt-get install -y \ \n{install}" 
+                f"DEBIAN_FRONTEND=noninteractive apt-get install -y \ \n\t{install}" 
             )
         return self

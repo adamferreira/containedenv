@@ -38,7 +38,7 @@ class ContainedEnv:
 			self._local.join(config_dir(), f"Dockerfile.{appname(self.config)}")
 		)
 		# install packages
-		dockerfile.install("sudo")
+		dockerfile.install(["sudo", "wget"])
 		self.__install_packages(dockerfile)
 
 		# create the user workspace
@@ -48,17 +48,18 @@ class ContainedEnv:
 		dockerfile.ENV("PROJECTS", self.projects())
 
 		dockerfile.exec_command(f"# create workspace for sudo user {username}")
-		# new user belongs to sudo group
-		dockerfile.RUN(f"useradd -r -m -U -G sudo -d {self.home()} -s /bin/bash -c \"Docker SGE user\" {username}")
-		# remove sudo password for {username} (as root)
 		dockerfile.exec_command(f"# remove sudo password for {username} (as root)")
-		dockerfile.RUN(f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}")
-		#dockerfile.RUN(f"usermod -aG sudo {username}")
 		dockerfile.RUN([
+			f"useradd -r -m -U -G sudo -d {self.home()} -s /bin/bash -c \"Docker SGE user\" {username}",
+			f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}",
 			f"chown -R {username} {self.home()}",
 			f"mkdir {self.projects()}",
 			f"chown -R {username} {self.home()}/*"
 		])
+
+		# additionnal setup for packages
+		# For example setting up pip for python
+		self.__setup_packages(dockerfile)
 
 		# last line
 		dockerfile.ENTRYPOINT("/bin/bash")
@@ -69,6 +70,33 @@ class ContainedEnv:
 		for confname, conf in self._config["install"].items():
 			dockerfile.exec_command(f"# packages for configuration {confname}")
 			dockerfile.install(conf["packages"])
+
+	def __setup_packages(self, dockerfile):
+		packages = []
+		for confname, conf in self._config["install"].items():
+			packages.extend(conf["packages"])
+
+		packages = set(packages)
+		python3_found = sum([ 1 if "python3" in p else 0 for p in packages]) > 0
+		distutils_found = sum([ 1 if "python3-distutils" in p else 0 for p in packages]) > 0
+
+		# If python is in the packages list, intall pip
+		# source : https://github.com/docker-library/python/blob/88bd0509d8c7cb3923c0b7fd5d3c05732a2e201c/3.11-rc/bullseye/Dockerfile
+		if python3_found:
+			PYTHON_GET_PIP_URL = "https://github.com/pypa/get-pip/raw/6ce3639da143c5d79b44f94b04080abf2531fd6e/public/get-pip.py"
+			PYTHON_GET_PIP_SHA256 = "ba3ab8267d91fd41c58dbce08f76db99f747f716d85ce1865813842bb035524d"
+			pip_lines = [
+				f"wget -O get-pip.py {PYTHON_GET_PIP_URL}",
+				f"echo \"{PYTHON_GET_PIP_SHA256} *get-pip.py\" | sha256sum -c -",
+				f"python3 get-pip.py --no-cache-dir --no-compile",
+				f"rm -f get-pip.py",
+				f"pip --version"
+			]
+			if not distutils_found:
+				pip_lines.insert(0, f"DEBIAN_FRONTEND=noninteractive apt-get install -y python3-distutils")
+
+			dockerfile.exec_command(f"# setting up pip")
+			dockerfile.RUN(pip_lines)
 
 	def __install_projects(self):
 		from urllib import parse
@@ -148,7 +176,7 @@ class ContainedEnv:
 		self._image = self.dockerclient.images.get(image)
 		return self
 
-	def build_image(self, regenerate = False) -> "ContainedEnv":
+	def build_image(self, regenerate = True) -> "ContainedEnv":
 		image = None
 		try:
 			image = self.dockerclient.images.get(imagename(self.config))
