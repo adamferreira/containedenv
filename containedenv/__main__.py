@@ -20,7 +20,8 @@ def get_argparser():
 def main():
 
     c = ContainedEnv(load_config())
-    c.build_image().run_container()
+    c.build_image()
+    c.run_container()
     return None
 
 if __name__ == "__main__":

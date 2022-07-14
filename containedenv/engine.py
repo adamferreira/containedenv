@@ -38,8 +38,7 @@ class ContainedEnv:
 			self._local.join(config_dir(), f"Dockerfile.{appname(self.config)}")
 		)
 		# install packages
-		dockerfile.install(["sudo", "wget"])
-		self.__install_packages(dockerfile)
+		dockerfile.install(["sudo", "wget", "curl"])
 
 		# create the user workspace
 		username = user(self._config)
@@ -57,28 +56,26 @@ class ContainedEnv:
 			f"chown -R {username} {self.home()}/*"
 		])
 
-		# additionnal setup for packages
-		# For example setting up pip for python
-		self.__setup_packages(dockerfile)
+		# install user packages
+		self.__install_packages(dockerfile)
 
 		# last line
-		dockerfile.ENTRYPOINT("/bin/bash")
+		dockerfile.USER(username)
+		dockerfile.CMD("/bin/bash")
 		dockerfile.close()
 		return dockerfile.filename
 
 	def __install_packages(self, dockerfile):
-		for confname, conf in self._config["install"].items():
-			dockerfile.exec_command(f"# packages for configuration {confname}")
-			dockerfile.install(conf["packages"])
-
-	def __setup_packages(self, dockerfile):
 		packages = []
+		exclusion_list = ["julia"]
 		for confname, conf in self._config["install"].items():
 			packages.extend(conf["packages"])
 
 		packages = set(packages)
 		python3_found = sum([ 1 if "python3" in p else 0 for p in packages]) > 0
 		distutils_found = sum([ 1 if "python3-distutils" in p else 0 for p in packages]) > 0
+		julia_found = sum([ 1 if "julia" in p else 0 for p in packages]) > 0
+		dockerfile.install([p for p in packages if p not in exclusion_list])
 
 		# If python is in the packages list, intall pip
 		# source : https://github.com/docker-library/python/blob/88bd0509d8c7cb3923c0b7fd5d3c05732a2e201c/3.11-rc/bullseye/Dockerfile
@@ -97,6 +94,15 @@ class ContainedEnv:
 
 			dockerfile.exec_command(f"# setting up pip")
 			dockerfile.RUN(pip_lines)
+
+		# Julia setup
+		if julia_found:
+			if False:
+				juliafile = self._local.join(config_dir(), "julia.dockerfile")
+				dockerfile.append_dockerfile(juliafile)
+			dockerfile.exec_command(f"# installing julia")
+			dockerfile.RUN(f"sudo bash -ci \"$(curl -fsSL https://raw.githubusercontent.com/abelsiqueira/jill/main/jill.sh)\" --yes --no-confirm")
+
 
 	def __install_projects(self):
 		from urllib import parse
@@ -162,8 +168,9 @@ class ContainedEnv:
 					scmprofile = scmprofile
 				)
 
-			for cmd in project["post_clone_cmds"]:
-				self._engine.bash(cmd)
+			if "post_clone_cmds" in project:
+				for cmd in project["post_clone_cmds"]:
+					self._engine.bash(cmd)
 					
 
 		# TODO : have one git credential by profiles
