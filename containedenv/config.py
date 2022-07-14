@@ -6,7 +6,7 @@ def config_dir() -> str:
     return os.path.join(os.path.dirname(dir_path), "config")
 
 def default_config() -> str:
-    return os.path.join(config_dir(), "default.yml")
+    return os.path.join(config_dir(), ".hidden.yaml")
 
 def load_config(config:str = None):
     __config = config if config is not None else default_config()
@@ -27,3 +27,7 @@ def imagename(config) -> str:
 
 def containername(config) -> str:
     return f"{appname(config)}_cnt"
+
+def get_github_credentials(user:str, token:str) -> str:
+	# git config --global credential.helper 'store --file ~/.my-credentials'
+	return f"https://{user}:{token}@github.com"

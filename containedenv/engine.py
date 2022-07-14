@@ -22,7 +22,7 @@ class ContainedEnv:
 		# protected
 		self._local = LocalFileSystem()
 		self._config = config
-		self._engine = DockerEngine()
+		self._engine = DockerEngine(user = user(self._config))
 		# public
 		self.dockerclient = docker.from_env()
 
@@ -43,6 +43,10 @@ class ContainedEnv:
 
 		# create the user workspace
 		username = user(self._config)
+		dockerfile.ENV("USER", username)
+		dockerfile.ENV("HOME", self.home())
+		dockerfile.ENV("PROJECTS", self.projects())
+
 		dockerfile.exec_command(f"# create workspace for sudo user {username}")
 		# new user belongs to sudo group
 		dockerfile.RUN(f"useradd -r -m -U -G sudo -d {self.home()} -s /bin/bash -c \"Docker SGE user\" {username}")
@@ -50,14 +54,16 @@ class ContainedEnv:
 		dockerfile.exec_command(f"# remove sudo password for {username} (as root)")
 		dockerfile.RUN(f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}")
 		#dockerfile.RUN(f"usermod -aG sudo {username}")
-		dockerfile.RUN(f"chown -R {username} {self.home()}")
-		dockerfile.RUN(f"mkdir {self.projects()}")
-		dockerfile.RUN(f"chown -R {username} {self.home()}/*")
+		dockerfile.RUN([
+			f"chown -R {username} {self.home()}",
+			f"mkdir {self.projects()}",
+			f"chown -R {username} {self.home()}/*"
+		])
 
 		# last line
 		dockerfile.ENTRYPOINT("/bin/bash")
-		# destructor of dockerfile will close the file
-		return dockerfile.script.name
+		dockerfile.close()
+		return dockerfile.filename
 
 	def __install_packages(self, dockerfile):
 		for confname, conf in self._config["install"].items():
@@ -65,6 +71,48 @@ class ContainedEnv:
 			dockerfile.install(conf["packages"])
 
 	def __install_projects(self):
+		from urllib import parse
+
+		def clone_repo(self, repourl:str, workspace:str) -> str:
+			# clone repositories (if git in name, else copy local path (?))
+			if ".git" in repo:
+				repo_workspace = self._engine.join(
+					workspace,
+					self._engine.basename(repourl).replace(".git", "")
+				)
+
+				self._engine.bash(
+					cmds = f"git clone {repourl} {repo_workspace}",
+					cwd = self.projects() 
+				)
+
+				return repo_workspace
+			else:
+				raise RuntimeError("Can only clone git repo at the moment.")
+
+		def setup_container_repo(self, repo_workspace:str, scmprofile:dict) -> None:
+			# Retrieve url from clone repo
+			repourl = self._engine.evaluate("git config --get remote.origin.url", cwd = repo_workspace)[0]
+			# Get site from url to generate token line
+			repourl = parse.urlsplit(repourl)
+			user = scmprofile["user"]
+			token = scmprofile["token"]
+			ghcredentials = f"{repourl.scheme}://{user}:{token}@{repourl.netloc}"
+			credentials_file = self._engine.join(".git", "." + user + "-credentials")
+
+			# Hidden token from stdout
+			self._engine.bash(
+				cmds = [f"echo \"{ghcredentials}\" | tee {credentials_file}"],
+				cwd = repo_workspace, silent = True
+			)
+			self._engine.bash(
+				cmds = [
+					f"git config --local user.name {user}",
+					f"git config --local credential.helper \'store --file {credentials_file}\'"
+				],
+				cwd = repo_workspace
+			)
+
 		assert self._engine.container is not None
 		# Install projects
 		for projname, project in self._config["projects"].items():
@@ -75,13 +123,20 @@ class ContainedEnv:
 				# TODO : call self.__del__ to delete temp folder
 				raise RuntimeError("Cannot find profile " + project["scmprofile"])
 
-			# clone repositories (if git in name, else copy local path (?))
+			
+			# Add project workspace to the container's bashrc
+			self._engine.register_env(projname.upper(), project["workspace"])
+
 			for repo in project["sources"]:
-				self._engine.exec_command(
-					cmd = f"git clone {repo}",
-					cwd = self.projects() 
+				repo_workspace = clone_repo(self, repo, project["workspace"])
+				setup_container_repo(self,
+					repo_workspace = repo_workspace,
+					scmprofile = scmprofile
 				)
-				# TODO point this project to the corresponding global profile git credential
+
+			for cmd in project["post_clone_cmds"]:
+				self._engine.bash(cmd)
+					
 
 		# TODO : have one git credential by profiles
 		def __install_config(self):
@@ -93,7 +148,7 @@ class ContainedEnv:
 		self._image = self.dockerclient.images.get(image)
 		return self
 
-	def build_image(self, regenerate = True) -> "ContainedEnv":
+	def build_image(self, regenerate = False) -> "ContainedEnv":
 		image = None
 		try:
 			image = self.dockerclient.images.get(imagename(self.config))
@@ -124,7 +179,7 @@ class ContainedEnv:
 
 		return self
 
-	def run_container(self, regenerate = False) -> "ContainedEnv":
+	def run_container(self, regenerate = True) -> "ContainedEnv":
 		container = None
 		try:
 			container = self.dockerclient.containers.get(containername(self.config))
@@ -157,24 +212,7 @@ class ContainedEnv:
 		else:
 			self._engine.container = container
 
-		self.container.logs()
-		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
-		#self.dockerclient.images.remove(matches[0], force = True)
-		return self
-
-
-	def setup_github(self) -> "ContainedEnv":
-		def get_github_credentials(user:str, token:str) -> str:
-			# git config --global credential.helper 'store --file ~/.my-credentials'
-			return f"https://{user}:{token}@github.com"
-
-		assert self.container is not None
-		user = "testuser"
-		token = "testoken"
-		credentials_file = "/home/.git-credentials"
-		credentials_line = get_github_credentials(user, token)
+		self.__install_projects()
 		
-		# Create credentials file
-		self._engine.exec_command(f"echo \"{credentials_line}\" > {credentials_file}")
-		# Store credentials into git configuration
-		self._engine.exec_command(f"git config --global credential.helper \'store --file {credentials_file}\'")
+		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
+		return self

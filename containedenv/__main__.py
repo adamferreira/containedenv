@@ -21,7 +21,6 @@ def main():
 
     c = ContainedEnv(load_config())
     c.build_image().run_container()
-    #c.setup_github()
     return None
 
 if __name__ == "__main__":
