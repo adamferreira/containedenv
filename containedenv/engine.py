@@ -183,7 +183,7 @@ class ContainedEnv:
 		self._image = self.dockerclient.images.get(image)
 		return self
 
-	def build_image(self, regenerate = True) -> "ContainedEnv":
+	def build_image(self, regenerate = False) -> "ContainedEnv":
 		image = None
 		try:
 			image = self.dockerclient.images.get(imagename(self.config))
