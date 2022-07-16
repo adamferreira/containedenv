@@ -7,15 +7,14 @@ profiles:
         user: cteuser
     github:
         user: cteuser
-        token: "0000-0000"
-
-install:
-    essentials:
-        packages: 
-            - git
-            - vim    
+        token: "0000-0000"   
 
 projects:
+    all:
+        requires:
+            - git
+            - vim
+            
     containedenv:
         sources:
             - https://github.com/adamferreira/containedenv.git

@@ -2,6 +2,7 @@ import docker
 from pyrc.system import LocalFileSystem
 from pyrc.docker import DockerEngine
 from containedenv.dockerfile import UbuntuDockerFile
+from containedenv.packages import PackageManager
 from containedenv.config import *
 
 class ContainedEnv:
@@ -17,6 +18,10 @@ class ContainedEnv:
 	@property
 	def config(self):
 		return self._config
+
+	@property
+	def local(self):
+		return self.local
 
 	def __init__(self, config:dict) -> None:
 		# protected
@@ -56,55 +61,24 @@ class ContainedEnv:
 			f"chown -R {username} {self.home()}/*"
 		])
 
-		# install user packages
-		self.__install_packages(dockerfile)
+		# install user packages for projects
+		self.__install_projects(dockerfile)
 
 		# last line
 		dockerfile.USER(username)
-		dockerfile.CMD("/bin/bash")
 		dockerfile.close()
 		return dockerfile.filename
 
-	def __install_packages(self, dockerfile):
-		packages = []
-		exclusion_list = ["julia"]
-		for confname, conf in self._config["install"].items():
-			packages.extend(conf["packages"])
+	def __install_projects(self, dockerfile):
+		pkg = PackageManager()
+		# Install projects dependencies
+		for projname, project in self._config["projects"].items():
+			pkg.add([] if "requires" not in project else project["requires"])
 
-		packages = set(packages)
-		python3_found = sum([ 1 if "python3" in p else 0 for p in packages]) > 0
-		distutils_found = sum([ 1 if "python3-distutils" in p else 0 for p in packages]) > 0
-		julia_found = sum([ 1 if "julia" in p else 0 for p in packages]) > 0
-		dockerfile.install([p for p in packages if p not in exclusion_list])
-
-		# If python is in the packages list, intall pip
-		# source : https://github.com/docker-library/python/blob/88bd0509d8c7cb3923c0b7fd5d3c05732a2e201c/3.11-rc/bullseye/Dockerfile
-		if python3_found:
-			PYTHON_GET_PIP_URL = "https://github.com/pypa/get-pip/raw/6ce3639da143c5d79b44f94b04080abf2531fd6e/public/get-pip.py"
-			PYTHON_GET_PIP_SHA256 = "ba3ab8267d91fd41c58dbce08f76db99f747f716d85ce1865813842bb035524d"
-			pip_lines = [
-				f"wget -O get-pip.py {PYTHON_GET_PIP_URL}",
-				f"echo \"{PYTHON_GET_PIP_SHA256} *get-pip.py\" | sha256sum -c -",
-				f"python3 get-pip.py --no-cache-dir --no-compile",
-				f"rm -f get-pip.py",
-				f"pip --version"
-			]
-			if not distutils_found:
-				pip_lines.insert(0, f"DEBIAN_FRONTEND=noninteractive apt-get install -y python3-distutils")
-
-			dockerfile.exec_command(f"# setting up pip")
-			dockerfile.RUN(pip_lines)
-
-		# Julia setup
-		if julia_found:
-			if False:
-				juliafile = self._local.join(config_dir(), "julia.dockerfile")
-				dockerfile.append_dockerfile(juliafile)
-			dockerfile.exec_command(f"# installing julia")
-			dockerfile.RUN(f"sudo bash -ci \"$(curl -fsSL https://raw.githubusercontent.com/abelsiqueira/jill/main/jill.sh)\" --yes --no-confirm")
+		pkg.install(dockerfile)
 
 
-	def __install_projects(self):
+	def __setup_projects(self):
 		from urllib import parse
 
 		def clone_repo(self, repourl:str, workspace:str) -> str:
@@ -150,6 +124,12 @@ class ContainedEnv:
 		assert self._engine.container is not None
 		# Install projects
 		for projname, project in self._config["projects"].items():
+			# Get project arguments
+			
+			if "scmprofile" not in project:
+				print(f"Cannot find scmprofile in project {projname}, skipping project setup.")
+				continue
+
 			# Get source code manager profile
 			if project["scmprofile"] in self._config["profiles"].keys():
 				scmprofile = self._config["profiles"][project["scmprofile"]]
@@ -168,14 +148,9 @@ class ContainedEnv:
 					scmprofile = scmprofile
 				)
 
-			if "post_clone_cmds" in project:
-				for cmd in project["post_clone_cmds"]:
+			if "setup" in project:
+				for cmd in project["setup"]:
 					self._engine.bash(cmd)
-					
-
-		# TODO : have one git credential by profiles
-		def __install_config(self):
-			return NotImplemented
 
 
 
@@ -247,7 +222,7 @@ class ContainedEnv:
 		else:
 			self._engine.container = container
 
-		self.__install_projects()
+		self.__setup_projects()
 		
 		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
 		return self
