@@ -74,6 +74,7 @@ class PackageManager(object):
 				pkgs.add(dependency)
 
 		# Install all normal packages in one go
+		dockerfile.exec_command(f"# install all projects packages")
 		dockerfile.install(list(pkgs))
 		[self.toinstall.discard(pkg) for pkg in pkgs]
 		[self.installed.add(pkg) for pkg in pkgs]

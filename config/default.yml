@@ -19,4 +19,39 @@ projects:
         sources:
             - https://github.com/adamferreira/containedenv.git
         scmprofile: github
+
+    ssh:
+        requires:
+            - ssh
+        image:
+            - "EXPOSE 22"
+            - "ENV SSHHOME /root/.ssh"
+            - ARG SSHKEYPRIV="id_rsa"
+            - ARG SSHKEYPUB="id_rsa.pub"
+            - "RUN run mkdir ${SSHHOME}; \\"
+            -   "\tmkdir /run/sshd"
+            - "# Copy over private key, and set permissions"
+            - "# Warning! Anyone who gets their hands on this image will be able"
+            - "# to retrieve this private key file from the corresponding image layer"
+            - "COPY ${SSHKEYPRIV} ${SSHHOME}/id_rsa"
+            - "COPY ${SSHKEYPUB} ${SSHHOME}/id_rsa.pub"
+            - "COPY ${SSHKEYPUB} ${SSHHOME}/authorized_keys"
+            - "# Settin up root keys"
+            - "RUN chmod a+rw-x,g-rwx,o-rwx   ${SSHHOME}/id_rsa; \\"
+            -   "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/id_rsa.pub; \\"
+            -   "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/authorized_keys; \\"
+            -   "\ttouch ${SSHHOME}/known_hosts; \\"
+            -   "\tmkdir /home/${USER}/.ssh"
+            - "# Settin up user keys"
+            - "COPY ${SSHKEYPRIV} /home/${USER}/.ssh/id_rsa"
+            - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/id_rsa.pub"
+            - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/authorized_keys"
+            - "RUN chmod a+rw-x,g-rwx,o-rwx   /home/${USER}/.ssh/id_rsa; \\"
+            -   "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/id_rsa.pub; \\"
+            -   "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/authorized_keys; \\"
+            -   "\ttouch /home/${USER}/.ssh/known_hosts; \\"
+            -   "\tchown -R ${USER} /home/${USER}/.ssh/*"
+        #setup:
+            # Run the ssh server
+            #- sudo /usr/sbin/sshd -D &
         

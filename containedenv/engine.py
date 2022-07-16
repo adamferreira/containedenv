@@ -66,6 +66,8 @@ class ContainedEnv:
 
 		# last line
 		dockerfile.USER(username)
+		# TODO : make entrypoint a custom bash file
+		dockerfile.ENTRYPOINT("sudo /usr/sbin/sshd -D")
 		dockerfile.close()
 		return dockerfile.filename
 
@@ -76,6 +78,11 @@ class ContainedEnv:
 			pkg.add([] if "requires" not in project else project["requires"])
 
 		pkg.install(dockerfile)
+
+		# Run eventual dockerfile commands set by user:
+		if "image" in project:
+			for cmd in project["image"]:
+				dockerfile.exec_command(cmd)
 
 
 	def __setup_projects(self):
@@ -125,28 +132,29 @@ class ContainedEnv:
 		# Install projects
 		for projname, project in self._config["projects"].items():
 			# Get project arguments
-			
-			if "scmprofile" not in project:
-				print(f"Cannot find scmprofile in project {projname}, skipping project setup.")
-				continue
 
 			# Get source code manager profile
-			if project["scmprofile"] in self._config["profiles"].keys():
-				scmprofile = self._config["profiles"][project["scmprofile"]]
+			profile_found = False
+			if "scmprofile" in project:
+				if project["scmprofile"] in self._config["profiles"].keys():
+					scmprofile = self._config["profiles"][project["scmprofile"]]
+					profile_found = True
+				else:
+					# TODO : call self.__del__ to delete temp folder
+					raise RuntimeError("Cannot find profile " + project["scmprofile"])
+
+			if profile_found:
+				# Add project workspace to the container's bashrc
+				self._engine.register_env(projname.upper(), project["workspace"])
+
+				for repo in project["sources"]:
+					repo_workspace = clone_repo(self, repo, project["workspace"])
+					setup_container_repo(self,
+						repo_workspace = repo_workspace,
+						scmprofile = scmprofile
+					)
 			else:
-				# TODO : call self.__del__ to delete temp folder
-				raise RuntimeError("Cannot find profile " + project["scmprofile"])
-
-			
-			# Add project workspace to the container's bashrc
-			self._engine.register_env(projname.upper(), project["workspace"])
-
-			for repo in project["sources"]:
-				repo_workspace = clone_repo(self, repo, project["workspace"])
-				setup_container_repo(self,
-					repo_workspace = repo_workspace,
-					scmprofile = scmprofile
-				)
+				print(f"No profile found for project {projname}, skipping clone.")
 
 			if "setup" in project:
 				for cmd in project["setup"]:
@@ -190,6 +198,8 @@ class ContainedEnv:
 		return self
 
 	def run_container(self, regenerate = True) -> "ContainedEnv":
+		port_host = "6022"
+		port_incontainer = "22"
 		container = None
 		try:
 			container = self.dockerclient.containers.get(containername(self.config))
@@ -216,6 +226,7 @@ class ContainedEnv:
 				command = "bash",
 				name = containername(self.config),
 				hostname = appname(self.config),
+				ports = {port_incontainer : port_host},
 				tty = True,
 				detach = True
 			)
@@ -225,4 +236,5 @@ class ContainedEnv:
 		self.__setup_projects()
 		
 		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
+		print(f"If an ssh server is running in the container, you may call \"ssh -i id_rsa -p {port_host} {user(self._config)}@localhost\"")
 		return self
