@@ -112,6 +112,7 @@ class ContainedEnv:
 			repourl = parse.urlsplit(repourl)
 			user = scmprofile["user"]
 			token = scmprofile["token"]
+			mail = scmprofile["mail"] if "mail" in scmprofile else None
 			ghcredentials = f"{repourl.scheme}://{user}:{token}@{repourl.netloc}"
 			credentials_file = self._engine.join(".git", "." + user + "-credentials")
 
@@ -123,6 +124,7 @@ class ContainedEnv:
 			self._engine.bash(
 				cmds = [
 					f"git config --local user.name {user}",
+					f"git config --local user.email {mail}" if mail is not None else "",
 					f"git config --local credential.helper \'store --file {credentials_file}\'"
 				],
 				cwd = repo_workspace
