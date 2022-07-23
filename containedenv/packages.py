@@ -5,7 +5,8 @@ class PackageManager(object):
 	def __init__(self) -> None:
 		self.special_packages = {
 			"julia" : [],
-			"python" : ["python3", "python3-distutils"]
+			"python" : ["python3", "python3-distutils"],
+			"homebrew" : []
 		}
 		self.installed = set()
 		self.toinstall = set()
@@ -32,7 +33,18 @@ class PackageManager(object):
 		dockerfile.append_dockerfile(juliafile)
 		dockerfile.exec_command(f"# installing julia")
 		dockerfile.RUN(f"sudo bash -ci \"$(curl -fsSL https://raw.githubusercontent.com/abelsiqueira/jill/main/jill.sh)\" --yes --no-confirm")
+
+	def __install_homebrew(self, dockerfile):
+		# Download homebrew and Change rights
+		dockerfile.exec_command(f"# installing homebrew")
+		dockerfile.RUN([
+			"sudo NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"",
+			"chown -R $USER /home/linuxbrew/"
+		])
+		# Add brew to PATH
+		dockerfile.ENV("PATH", "/home/linuxbrew/.linuxbrew/bin:$PATH")
 		
+
 
 	def isinstalled(self, pkg:str) -> bool:
 		return pkg in self.installed
@@ -52,6 +64,10 @@ class PackageManager(object):
 
 		elif pkg == "julia":
 			self.__install_julia(dockerfile)
+
+		elif pkg == "homebrew":
+			self.__install_homebrew(dockerfile)
+
 
 
 		self.installed.add(pkg)

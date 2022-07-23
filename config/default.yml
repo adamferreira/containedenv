@@ -54,4 +54,31 @@ projects:
         #setup:
             # Run the ssh server
             #- sudo /usr/sbin/sshd -D &
+
+    carbon:
+        workspace: "$PROJECTS"
+        scmprofile: github
+        requires:
+            # Curl need for homebrew
+            - curl
+            - homebrew
+            # Python needed for Carbon install and check
+            - python
+            # For zlib.h
+            - libz-dev
+        sources:
+            - https://github.com/carbon-language/carbon-lang.git
+        image:
+            # export PATH="$(brew --prefix llvm)/bin:${PATH}"
+            - ENV PATH /home/linuxbrew/.linuxbrew/opt/llvm:${PATH}
+            # Clang as default compiler
+            - ENV CC /home/linuxbrew/.linuxbrew/bin/clang
+        setup:
+            # Install bazelisk using Homebrew.
+            - brew install bazelisk
+            # Install Clang/LLVM using Homebrew.
+            # Many Clang/LLVM releases aren't built with options Carbon relies on.
+            - brew install llvm
+            # Build and run the explorer.
+            - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon
         
