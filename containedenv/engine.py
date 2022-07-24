@@ -5,6 +5,9 @@ from containedenv.dockerfile import UbuntuDockerFile
 from containedenv.packages import PackageManager
 from containedenv.config import *
 
+#from traitlets import Any, Dict, Int, List, Unicode, Bool, default
+#from traitlets.config import Application
+
 class ContainedEnv:
 
 	@property
