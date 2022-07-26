@@ -50,12 +50,22 @@ def get_argparser():
 
     parser.add_argument(
         "--ports",
-        "-p",
         dest="ports",
         action="append",
         help=(
             "Specify port mappings for the image. Needs a command to "
             "run in the container." "Syntax is <port_on_host>:<port_in_container>"
+        ),
+        default=[]
+    )
+
+    parser.add_argument(
+        "--projects",
+        "-p",
+        dest="projects",
+        action="append",
+        help=(
+            "List of the project of the config to actually build"
         ),
         default=[]
     )
