@@ -3,6 +3,8 @@ import sys
 from containedenv.engine import ContainedEnv
 from containedenv.config import load_config
 
+from pyrc.remote import create_default_sshconnectors
+
 def get_argparser():
     parser = argparse.ArgumentParser(
         description="Build a contained dev environment"
@@ -10,8 +12,8 @@ def get_argparser():
 
     parser.add_argument(
         "--no-build",
-        dest="build",
-        action="store_false",
+        dest="nobuild",
+        action="store_true",
         help=(
             "Do not actually build the image. Useful in conjunction " "with --debug."
         )
@@ -21,7 +23,7 @@ def get_argparser():
         "--debug",
         "-d",
         dest="debug",
-        action="store_false",
+        action="store_true",
         help=(
             "Print all command outputs in image and container bulding"
         )
@@ -29,9 +31,10 @@ def get_argparser():
 
     parser.add_argument(
         "--rebuild",
+        "-r",
         dest="rebuild",
-        action="store_false",
-        help="Reconstruct the image even is an image with the same name is found",
+        action="store_true",
+        help="Reconstruct the image even is an image with the same name is found"
     )
 
     parser.add_argument(
@@ -46,6 +49,7 @@ def get_argparser():
         type=str,
         dest="ghtoken",
         help="Github access token",
+        default=None
     )
 
     parser.add_argument(
@@ -62,14 +66,9 @@ def get_argparser():
 
     return parser
 
-def main():
-    c = ContainedEnv(load_config())
-    c.build_image()
-    c.run_container()
-    return None
-
 if __name__ == "__main__":
     containedenvargs, otherargs = get_argparser().parse_known_args(sys.argv[1:])
     print(containedenvargs)
-    #return None
-    #main()
+    c = ContainedEnv(load_config(), containedenvargs)
+    c.build_image()
+    c.run_container()
