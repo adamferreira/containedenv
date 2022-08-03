@@ -1,0 +1,26 @@
+app:
+    name: soapy
+    user: aferreira
+
+profiles:
+    containedenv:
+        user: aferreira
+    github:
+        user: aferreira
+        token: "0000-0000"   
+
+projects:
+    all:
+        requires:
+            - git
+            - vim
+    soapy:
+        workspace: "$PROJECTS"
+        requires:
+            - julia 
+        sources:
+            - https://github.com/adamferreira/Soapy.jl.git
+        scmprofile: github
+        setup:
+            - julia --project=/home/aferreira/projects/Soapy.jl -e \"using Pkg; Pkg.instanciate()\"
+        

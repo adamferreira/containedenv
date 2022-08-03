@@ -138,6 +138,12 @@ class ContainedEnv:
 			)
 
 		assert self._engine.container is not None
+
+		# To correct : fatal: unable to access <repo>: server certificate verification failed. CAfile: none CRLfile: none
+		# Either put export GIT_SSL_NO_VERIFY=1 in image
+		# Or config git in container : git config --global http.sslverify false
+		self._engine.bash("git config --global http.sslverify false")
+
 		# Install projects
 		for projname, project in self._config["projects"].items():
 			# Get project arguments
