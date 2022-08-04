@@ -78,15 +78,24 @@ class ContainedEnv:
 	def __install_projects(self, dockerfile):
 		pkg = PackageManager()
 		# Install projects dependencies
-		for projname, project in self._config["projects"].items():
+		for projname in self.args.projects:
+			if projname not in  self._config["projects"].keys():
+				print(f"Project {projname} not found, ignoring.")
+				continue
+			project = self._config["projects"][projname]
 			pkg.add([] if "requires" not in project else project["requires"])
 
 		pkg.install(dockerfile)
-
-		# Run eventual dockerfile commands set by user:
-		if "image" in project:
-			for cmd in project["image"]:
-				dockerfile.exec_command(cmd)
+	
+		for projname in self.args.projects:
+			if projname not in  self._config["projects"].keys():
+				print(f"Project {projname} not found, ignoring.")
+				continue
+			project = self._config["projects"][projname]
+			# Run eventual dockerfile commands set by user:
+			if "image" in project:
+				for cmd in project["image"]:
+					dockerfile.exec_command(cmd)
 
 
 	def __setup_projects(self):
@@ -145,9 +154,12 @@ class ContainedEnv:
 		self._engine.bash("git config --global http.sslverify false")
 
 		# Install projects
-		for projname, project in self._config["projects"].items():
-			# Get project arguments
-
+		for projname in self.args.projects:
+			if projname not in self._config["projects"].keys():
+				print(f"Project {projname} not found, ignoring.")
+				continue
+			
+			project = self._config["projects"][projname]
 			# Get source code manager profile
 			profile_found = False
 			if "scmprofile" in project:
