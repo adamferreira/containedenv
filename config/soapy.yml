@@ -22,5 +22,5 @@ projects:
             - https://github.com/adamferreira/Soapy.jl.git
         scmprofile: github
         setup:
-            - julia --project=/home/aferreira/projects/Soapy.jl -e \"using Pkg; Pkg.instanciate()\"
+            - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"
         

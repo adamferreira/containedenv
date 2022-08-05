@@ -95,6 +95,7 @@ class ContainedEnv:
 			# Run eventual dockerfile commands set by user:
 			if "image" in project:
 				for cmd in project["image"]:
+					# TODO evaluate path
 					dockerfile.exec_command(cmd)
 
 
@@ -185,6 +186,7 @@ class ContainedEnv:
 
 			if "setup" in project:
 				for cmd in project["setup"]:
+					#self._engine.evaluate_path(cmd)
 					self._engine.bash(cmd)
 
 
