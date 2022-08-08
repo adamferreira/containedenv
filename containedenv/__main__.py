@@ -74,11 +74,36 @@ def get_argparser():
         default=[]
     )
 
+    parser.add_argument(
+        "--appname",
+        "-n",
+        dest="appname",
+        type=str,
+        default="containedenv",
+        help = (
+            "Application name, also hostname name of the container."
+            "Overrides any app name given in the config file if different from 'containedenv'."
+        )
+    )
+
+    parser.add_argument(
+        "--user",
+        "-u",
+        dest="user",
+        type=str,
+        default="cteuser",
+        help = (
+            "Username inside the container."
+            "Overrides any user name given in the config file if different from 'cteuser'."
+        )
+    )
+
     return parser
 
 if __name__ == "__main__":
     containedenvargs, otherargs = get_argparser().parse_known_args(sys.argv[1:])
-    print(containedenvargs)
     c = ContainedEnv(load_config(), containedenvargs)
+    print(c.args)
+    exit(-1)
     c.build_image()
     c.run_container()

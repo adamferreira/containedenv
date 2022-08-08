@@ -29,11 +29,21 @@ class ContainedEnv:
 	def __init__(self, config:dict, args) -> None:
 		# protected
 		self._local = LocalFileSystem()
-		self._config = config
+		self._config = dict(config)
 		self._engine = DockerEngine(user = user(self._config))
 		# public
 		self.args = args
 		self.dockerclient = docker.from_env()
+
+		# Get app name and user name from args
+		if "app" not in self._config:
+			self._config["app"] = {}
+		if self.args.appname != "containedenv":
+			self._config["app"]["name"] = self.args.appname
+		if self.args.user != "cteuser":
+			self._config["app"]["user"] = self.args.user
+
+		print(self.config)
 
 	def home(self) -> str:
 		return f"/home/{user(self._config)}"
