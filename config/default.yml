@@ -81,4 +81,25 @@ projects:
             - brew install llvm
             # Build and run the explorer.
             - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon
-        
+
+    pyrc:
+        workspace: "$PROJECTS"
+        scmprofile: github
+        requires:
+            - git
+            - vim
+            - python
+        sources:
+            - https://github.com/adamferreira/pyrc.git
+        setup:
+            - "pip install -e /home/aferreira/projects/pyrc"
+            
+    soapy:
+        workspace: "$PROJECTS"
+        requires:
+            - julia 
+        sources:
+            - https://github.com/adamferreira/Soapy.jl.git
+        scmprofile: github
+        setup:
+            - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"        
