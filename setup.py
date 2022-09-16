@@ -26,6 +26,7 @@ setuptools.setup(
     install_requires=[
        "pyyaml",
        "docker",
+       "dataclasses_json",
        "pyrc @ git+https://github.com/adamferreira/pyrc.git@main"
    ],
     entry_points= {
