@@ -1,7 +1,7 @@
 import argparse
 import sys
 from containedenv.engine import ContainedEnv
-from containedenv.config import load_config
+from containedenv.config import *
 
 from pyrc.remote import create_default_sshconnectors
 
@@ -102,8 +102,8 @@ def get_argparser():
 
 if __name__ == "__main__":
     containedenvargs, otherargs = get_argparser().parse_known_args(sys.argv[1:])
-    c = ContainedEnv(load_config(), containedenvargs)
-    print(c.args)
-    exit(-1)
-    c.build_image()
-    c.run_container()
+    #c = ContainedEnv(load_config(), containedenvargs)
+    print(Config.from_args(containedenvargs))
+    #print(c.args)
+    #c.build_image()
+    #c.run_container()

@@ -1,5 +1,7 @@
+import argparse
 import os
 import yaml
+from argparse import Namespace
 from typing import Optional, List, Dict
 from dataclasses import dataclass, field
 from dataclasses_json import dataclass_json, DataClassJsonMixin
@@ -24,13 +26,13 @@ class GithubProfile(DataClassJsonMixin):
 @dataclass_json
 @dataclass
 class Project(DataClassJsonMixin):
+    name:str
     scmprofile:Optional[str] = None
     workspace:Optional[str] = "$PROJECTS"
-    requires:Optional[List[str]] = None
-    image:Optional[List[str]] = None
-    sources:Optional[List[str]] = None
-    container:Optional[List[str]] = None
-
+    requires:Optional[List[str]] = field(default_factory=list)
+    image:Optional[List[str]] = field(default_factory=list)
+    sources:Optional[List[str]] = field(default_factory=list)
+    container:Optional[List[str]] = field(default_factory=list)
 
 
 @dataclass_json
@@ -39,13 +41,21 @@ class Config(DataClassJsonMixin):
     app:AppContainer
     projects:Optional[List[Project]] = field(default_factory=list)
     github_profile:Optional[GithubProfile] = None
+    # Program arguments
+    args:Optional[argparse.Namespace] = None
     
     def from_dict(d):
-        config = Config.from_dict(d)
-        # Set project names
-        for projname, proj in config.projects:
-            setattr(proj, "name", projname)
+        # Use dataclass_json to load the config
+        config = Config.from_dict(d["config"])
+        # Get argparse arguments from the global dict
+        config.args = d["args"]
         return config
+
+    def from_args(args:argparse.Namespace) -> 'Config':
+        conf = load_config()
+        conf["args"] = args
+        return Config.from_dict(conf)
+
 
 
 def config_dir() -> str:
