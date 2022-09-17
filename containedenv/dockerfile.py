@@ -25,6 +25,9 @@ class UbuntuDockerFile(DockerFile):
     def install(self, ubuntu_packages:List[str]) -> "UbuntuDockerFile":
         if isinstance(ubuntu_packages, str):
             return self.install([ubuntu_packages])
+
+        if len(ubuntu_packages) == 0:
+            return self
         
         if len(ubuntu_packages) == 1:
             self.RUN(

@@ -1,5 +1,40 @@
 from pyrc.system import LocalFileSystem
-from containedenv.config import config_dir
+from containedenv.config import config_dir, Config, Project, Package
+from containedenv.dockerfile import DockerFile
+
+
+class PackageManager2(object):
+	def __init__(self, config:Config, dockerfile:DockerFile) -> None:
+		# Packages dictionnary for easier handling
+		self.packages:dict = {
+			p.name : p for p in config.packages
+		}
+		# Dockerfile
+		self.dockerfile:DockerFile = dockerfile
+		# Installed packages (names)
+		self.installed:set = set()
+
+	def install_package(self, pkg:str) -> None:
+		# Skip if package is note found in packages list
+		if not pkg in self.packages: return
+		# Skip if package is already installed
+		if pkg in self.installed: return
+
+		_pkg:Package = self.packages[pkg]
+		# Step one, install apt packages in any
+		self.dockerfile.install(_pkg.apt_packages)
+		# Step two, append a given docker file if any
+		if _pkg.dockerfile is not None:
+			_pkg.dockerfile.append_dockerfile(_pkg.dockerfile)
+		# Step three, executing given custom dockerfile commands
+		self.dockerfile.writlelines(_pkg.image)
+		# Step four, mark package as already installed
+		self.installed.add(pkg)
+
+	def install_project_packages(self, project:Project) -> None:
+		[self.install_package(pkg) for pkg in project.requires]
+
+
 
 class PackageManager(object):
 	def __init__(self) -> None:

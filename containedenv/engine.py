@@ -24,29 +24,23 @@ class ContainedEnv:
 
 	@property
 	def local(self):
-		return self.local
+		return self._local
 
-	def __init__(self, config:dict, args) -> None:
+	@property
+	def args(self):
+		return self._config.args
+
+	def __init__(self, config:Config) -> None:
 		# protected
 		self._local = LocalFileSystem()
-		self._config = dict(config)
-		self._engine = DockerEngine(user = user(self._config))
-		# public
-		self.args = args
-		self.dockerclient = docker.from_env()
-
-		# Get app name and user name from args
-		if "app" not in self._config:
-			self._config["app"] = {}
-		if self.args.appname != "containedenv":
-			self._config["app"]["name"] = self.args.appname
-		if self.args.user != "cteuser":
-			self._config["app"]["user"] = self.args.user
+		self._config = config
+		self._engine = DockerEngine(user = self.config.app.user)
+		self._dockerclient = docker.from_env()
 
 		print(self.config)
 
 	def home(self) -> str:
-		return f"/home/{user(self._config)}"
+		return f"/home/{self.config.app.user}"
 
 	def projects(self) -> str:
 		return f"{self.home()}/projects"
@@ -54,13 +48,13 @@ class ContainedEnv:
 	def __build_dockerfile(self):
 		# Create the dockerfile
 		dockerfile = UbuntuDockerFile(
-			self._local.join(config_dir(), f"Dockerfile.{appname(self.config)}")
+			self._local.join(config_dir(), f"Dockerfile.{self.config.appname()}")
 		)
 		# install packages
 		dockerfile.install(["sudo", "wget", "curl"])
 
 		# create the user workspace
-		username = user(self._config)
+		username = self.config.app.user
 		dockerfile.ENV("USER", username)
 		dockerfile.ENV("HOME", self.home())
 		dockerfile.ENV("PROJECTS", self.projects())
@@ -202,23 +196,23 @@ class ContainedEnv:
 
 
 	def from_image(self, image:str) -> "ContainedEnv":
-		self._image = self.dockerclient.images.get(image)
+		self._image = self._dockerclient.images.get(image)
 		return self
 
 	def build_image(self) -> "ContainedEnv":
 		image = None
 		try:
-			image = self.dockerclient.images.get(imagename(self.config))
+			image = self._dockerclient.images.get(self.config.imagename())
 			# If rebuild, force destroy image and remove linked container
 			if self.args.rebuild:
 				try:
-					container = self.dockerclient.containers.get(containername(self.config))
+					container = self._dockerclient.containers.get(self.config.containername())
 					container.remove(force = True)
 					container = None
 				except:
 					container = None
 
-				self.dockerclient.images.remove(
+				self._dockerclient.images.remove(
 					image = image.id, force = True
 				)
 				image = None
@@ -231,10 +225,10 @@ class ContainedEnv:
 			dockerfile_path = self.__build_dockerfile()
 
 			# Build the actual image
-			self._engine.image, _ = self.dockerclient.images.build(
+			self._engine.image, _ = self._dockerclient.images.build(
 				path = config_dir(),
 				dockerfile = dockerfile_path,
-				tag = imagename(self.config),
+				tag = self.config.imagename(),
 				# Remove intermediate containers. 
 				# The docker build command now defaults to --rm=true, 
 				# but we have kept the old default of False to preserve backward compatibility
@@ -253,7 +247,7 @@ class ContainedEnv:
 	def run_container(self) -> "ContainedEnv":
 		container = None
 		try:
-			container = self.dockerclient.containers.get(containername(self.config))
+			container = self._dockerclient.containers.get(self.config.containername())
 		except:
 			container = None
 
@@ -267,16 +261,16 @@ class ContainedEnv:
 		
 		if container is None:
 			# Find the image name tagged for this container
-			matches = [tag for tag in self.image.tags if tag == f"containedenv:{appname(self.config)}"]
+			matches = [tag for tag in self.image.tags if tag == self.config.imagename()]
 			if len(matches) == 0:
 				raise docker.errors.ImageNotFound
 				
-			self._engine.container = self.dockerclient.containers.run(
+			self._engine.container = self._dockerclient.containers.run(
 				image = matches[0],
 				#image = self._image.id,
 				command = "bash",
-				name = containername(self.config),
-				hostname = appname(self.config),
+				name = self.config.containername(),
+				hostname = self.config.appname(),
 				ports = {p.split(":")[0] : p.split(":")[1] for p in self.args.ports},
 				tty = True,
 				detach = True
@@ -286,6 +280,6 @@ class ContainedEnv:
 
 		self.__setup_projects()
 		
-		print(f"Enter this container with \"docker exec -it -u {user(self._config)} {containername(self.config)} bash\"")
-		print(f"If an ssh server is running in the container, you may call \"ssh -i id_rsa -p <port> {user(self._config)}@localhost\"")
+		print(f"Enter this container with \"docker exec -it -u {self.config.user()} {self.config.containername()} bash\"")
+		print(f"If an ssh server is running in the container, you may call \"ssh -i id_rsa -p <port> {self.config.user()}@localhost\"")
 		return self

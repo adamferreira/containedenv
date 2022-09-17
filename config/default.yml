@@ -1,105 +1,128 @@
 app:
-    name: containedenv
-    user: cteuser
+  name: containedenvself._dockerclient
+  user: aferreira
 
-profiles:
-    containedenv:
-        user: cteuser
-    github:
-        user: cteuser
-        token: "0000-0000"   
+github_profile:
+  user: adamferreira
+  mail: adam.ferreira.dc@gmail.com
+
+packages:
+  -
+    name: python39
+    dockerfile: python39.dockerfile
+  -
+    name: julia
+    #dockerfile: julia.dockerfile
+    image:
+      - "RUN sudo bash -ci \"$(curl -fsSL https://raw.githubusercontent.com/abelsiqueira/jill/main/jill.sh)\" --yes --no-confirm"
+  -
+    name: essentials
+    apt_packages: 
+      - git
+      - vim
+  -
+    name: homebrew
+    image:
+      - "RUN sudo NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" \\"
+      -     "\tchown -R $USER /home/linuxbrew/"
+      - "# Add brew to PATH"
+      - "ENV PATH /home/linuxbrew/.linuxbrew/bin:$PATH"
+  -
+    name: ssh
+    apt_packages: 
+      - ssh
 
 projects:
-    all:
-        requires:
-            - git
-            - vim
-            
-    containedenv:
-        sources:
-            - https://github.com/adamferreira/containedenv.git
-        scmprofile: github
+  -
+    name: containedenv
+    sources:
+      - https://github.com/adamferreira/containedenv.git
+    scmprofile: github
 
-    ssh:
-        requires:
-            - ssh
-        image:
-            - "EXPOSE 22"
-            - "ENV SSHHOME /root/.ssh"
-            - ARG SSHKEYPRIV="id_rsa"
-            - ARG SSHKEYPUB="id_rsa.pub"
-            - "RUN run mkdir ${SSHHOME}; \\"
-            -   "\tmkdir /run/sshd"
-            - "# Copy over private key, and set permissions"
-            - "# Warning! Anyone who gets their hands on this image will be able"
-            - "# to retrieve this private key file from the corresponding image layer"
-            - "COPY ${SSHKEYPRIV} ${SSHHOME}/id_rsa"
-            - "COPY ${SSHKEYPUB} ${SSHHOME}/id_rsa.pub"
-            - "COPY ${SSHKEYPUB} ${SSHHOME}/authorized_keys"
-            - "# Settin up root keys"
-            - "RUN chmod a+rw-x,g-rwx,o-rwx   ${SSHHOME}/id_rsa; \\"
-            -   "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/id_rsa.pub; \\"
-            -   "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/authorized_keys; \\"
-            -   "\ttouch ${SSHHOME}/known_hosts; \\"
-            -   "\tmkdir /home/${USER}/.ssh"
-            - "# Settin up user keys"
-            - "COPY ${SSHKEYPRIV} /home/${USER}/.ssh/id_rsa"
-            - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/id_rsa.pub"
-            - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/authorized_keys"
-            - "RUN chmod a+rw-x,g-rwx,o-rwx   /home/${USER}/.ssh/id_rsa; \\"
-            -   "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/id_rsa.pub; \\"
-            -   "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/authorized_keys; \\"
-            -   "\ttouch /home/${USER}/.ssh/known_hosts; \\"
-            -   "\tchown -R ${USER} /home/${USER}/.ssh/*"
-        #setup:
-            # Run the ssh server
-            #- sudo /usr/sbin/sshd -D &
+  -
+    name: ssh
+    requires:
+      - essentials
+    image:
+      - "EXPOSE 22"
+      - "ENV SSHHOME /root/.ssh"
+      - ARG SSHKEYPRIV="id_rsa"
+      - ARG SSHKEYPUB="id_rsa.pub"
+      - "RUN run mkdir ${SSHHOME}; \\"
+      -     "\tmkdir /run/sshd"
+      - "# Copy over private key, and set permissions"
+      - "# Warning! Anyone who gets their hands on this image will be able"
+      - "# to retrieve this private key file from the corresponding image layer"
+      - "COPY ${SSHKEYPRIV} ${SSHHOME}/id_rsa"
+      - "COPY ${SSHKEYPUB} ${SSHHOME}/id_rsa.pub"
+      - "COPY ${SSHKEYPUB} ${SSHHOME}/authorized_keys"
+      - "# Settin up root keys"
+      - "RUN chmod a+rw-x,g-rwx,o-rwx     ${SSHHOME}/id_rsa; \\"
+      -     "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/id_rsa.pub; \\"
+      -     "\tchmod a+rw-x,g+r-wx,o+r-wx ${SSHHOME}/authorized_keys; \\"
+      -     "\ttouch ${SSHHOME}/known_hosts; \\"
+      -     "\tmkdir /home/${USER}/.ssh"
+      - "# Settin up user keys"
+      - "COPY ${SSHKEYPRIV} /home/${USER}/.ssh/id_rsa"
+      - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/id_rsa.pub"
+      - "COPY ${SSHKEYPUB} /home/${USER}/.ssh/authorized_keys"
+      - "RUN chmod a+rw-x,g-rwx,o-rwx     /home/${USER}/.ssh/id_rsa; \\"
+      -     "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/id_rsa.pub; \\"
+      -     "\tchmod a+rw-x,g+r-wx,o+r-wx /home/${USER}/.ssh/authorized_keys; \\"
+      -     "\ttouch /home/${USER}/.ssh/known_hosts; \\"
+      -     "\tchown -R ${USER} /home/${USER}/.ssh/*"
+    #container:
+      # Run the ssh server
+      #- sudo /usr/sbin/sshd -D &
 
-    carbon:
-        workspace: "$PROJECTS"
-        scmprofile: github
-        requires:
-            # Curl need for homebrew
-            - curl
-            - homebrew
-            # Python needed for Carbon install and check
-            - python
-            # For zlib.h
-            - libz-dev
-        sources:
-            - https://github.com/carbon-language/carbon-lang.git
-        image:
-            # export PATH="$(brew --prefix llvm)/bin:${PATH}"
-            - ENV PATH /home/linuxbrew/.linuxbrew/opt/llvm:${PATH}
-            # Clang as default compiler
-            - ENV CC /home/linuxbrew/.linuxbrew/bin/clang
-        setup:
-            # Install bazelisk using Homebrew.
-            - brew install bazelisk
-            # Install Clang/LLVM using Homebrew.
-            # Many Clang/LLVM releases aren't built with options Carbon relies on.
-            - brew install llvm
-            # Build and run the explorer.
-            - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon
+  -
+    name: carbon
+    workspace: "$PROJECTS"
+    scmprofile: github
+    requires:
+      # Curl need for homebrew
+      - curl
+      - homebrew
+      # Python needed for Carbon install and check
+      - python
+      # For zlib.h
+      - libz-dev
+    sources:
+      - https://github.com/carbon-language/carbon-lang.git
+    image:
+      # export PATH="$(brew --prefix llvm)/bin:${PATH}"
+      - ENV PATH /home/linuxbrew/.linuxbrew/opt/llvm:${PATH}
+      # Clang as default compiler
+      - ENV CC /home/linuxbrew/.linuxbrew/bin/clang
+    container:
+      # Install bazelisk using Homebrew.
+      - brew install bazelisk
+      # Install Clang/LLVM using Homebrew.
+      # Many Clang/LLVM releases aren't built with options Carbon relies on.
+      - brew install llvm
+      # Build and run the explorer.
+      - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon
 
-    pyrc:
-        workspace: "$PROJECTS"
-        scmprofile: github
-        requires:
-            - git
-            - vim
-            - python
-        sources:
-            - https://github.com/adamferreira/pyrc.git
-        setup:
-            - "pip install -e /home/aferreira/projects/pyrc"
-            
-    soapy:
-        workspace: "$PROJECTS"
-        requires:
-            - julia 
-        sources:
-            - https://github.com/adamferreira/Soapy.jl.git
-        scmprofile: github
-        setup:
-            - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"        
+  -
+    name: pyrc
+    workspace: "$PROJECTS"
+    scmprofile: github
+    requires:
+      - git
+      - vim
+      - python
+    sources:
+      - https://github.com/adamferreira/pyrc.git
+    setup:
+      - "pip install -e /home/aferreira/projects/pyrc"
+        
+  -
+    name: soapy
+    workspace: "$PROJECTS"
+    requires:
+      - julia 
+    sources:
+      - https://github.com/adamferreira/Soapy.jl.git
+    scmprofile: github
+    container:
+      - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"                
