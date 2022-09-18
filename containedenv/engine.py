@@ -1,8 +1,9 @@
+from distutils.command.config import config
 import docker
 from pyrc.system import LocalFileSystem
 from pyrc.docker import DockerEngine
 from containedenv.dockerfile import UbuntuDockerFile
-from containedenv.packages import PackageManager
+from containedenv.packages import PackageManager, PackageManager2
 from containedenv.config import *
 
 #from traitlets import Any, Dict, Int, List, Unicode, Bool, default
@@ -48,9 +49,10 @@ class ContainedEnv:
 	def __build_dockerfile(self):
 		# Create the dockerfile
 		dockerfile = UbuntuDockerFile(
-			self._local.join(config_dir(), f"Dockerfile.{self.config.appname()}")
+			self.local.join(config_dir(), f"Dockerfile.{self.config.appname()}")
 		)
-		# install packages
+
+		# install utilitary packages
 		dockerfile.install(["sudo", "wget", "curl"])
 
 		# create the user workspace
@@ -59,8 +61,8 @@ class ContainedEnv:
 		dockerfile.ENV("HOME", self.home())
 		dockerfile.ENV("PROJECTS", self.projects())
 
-		dockerfile.exec_command(f"# create workspace for sudo user {username}")
-		dockerfile.exec_command(f"# remove sudo password for {username} (as root)")
+		dockerfile.writeline(f"# create workspace for sudo user {username}")
+		dockerfile.writeline(f"# remove sudo password for {username} (as root)")
 		dockerfile.RUN([
 			f"useradd -r -m -U -G sudo -d {self.home()} -s /bin/bash -c \"Docker SGE user\" {username}",
 			f"echo \"{username} ALL=(ALL:ALL) NOPASSWD: ALL\" | sudo tee /etc/sudoers.d/{username}",
@@ -75,40 +77,26 @@ class ContainedEnv:
 		# last line
 		dockerfile.USER(username)
 		# TODO : make entrypoint a custom bash file
-		dockerfile.ENTRYPOINT("sudo /usr/sbin/sshd -D")
+		#dockerfile.ENTRYPOINT("sudo /usr/sbin/sshd -D")
 		dockerfile.close()
 		return dockerfile.filename
 
 	def __install_projects(self, dockerfile):
-		pkg = PackageManager()
-		# Install projects dependencies
-		for projname in self.args.projects:
-			if projname not in  self._config["projects"].keys():
-				print(f"Project {projname} not found, ignoring.")
-				continue
-			project = self._config["projects"][projname]
-			pkg.add([] if "requires" not in project else project["requires"])
-
-		pkg.install(dockerfile)
-	
-		for projname in self.args.projects:
-			if projname not in  self._config["projects"].keys():
-				print(f"Project {projname} not found, ignoring.")
-				continue
-			project = self._config["projects"][projname]
-			# Run eventual dockerfile commands set by user:
-			if "image" in project:
-				for cmd in project["image"]:
-					# TODO evaluate path
-					dockerfile.exec_command(cmd)
+		# Create Package manager
+		pkg = PackageManager2(self.config, dockerfile)
+		# Install project dependencies
+		[pkg.install_project_packages(p) for p in self.config.projects]
+		# Run docker commands for projects
+		for project in self.config.projects:
+			dockerfile.writelines(project.image)
 
 
 	def __setup_projects(self):
 		from urllib import parse
 
-		def clone_repo(self, repourl:str, workspace:str) -> str:
+		def __clone_repo(self, repourl:str, workspace:str) -> str:
 			# clone repositories (if git in name, else copy local path (?))
-			if ".git" in repo:
+			if ".git" in repourl:
 				repo_workspace = self._engine.join(
 					workspace,
 					self._engine.basename(repourl).replace(".git", "")
@@ -116,23 +104,24 @@ class ContainedEnv:
 
 				self._engine.bash(
 					cmds = f"git clone {repourl} {repo_workspace}",
-					cwd = self.projects() 
+					cwd = workspace
 				)
 
 				return repo_workspace
 			else:
 				raise RuntimeError("Can only clone git repo at the moment.")
 
-		def setup_container_repo(self, repo_workspace:str, scmprofile:dict) -> None:
-			# Retrieve url from clone repo
+		def __configure_repository(self, repo_workspace:str, ghprofile:GithubProfile) -> None:
+			if ghprofile is None: return
+			# Retrieve url from cloned repo
 			repourl = self._engine.evaluate("git config --get remote.origin.url", cwd = repo_workspace)[0]
 			# Get site from url to generate token line
 			repourl = parse.urlsplit(repourl)
-			user = scmprofile["user"]
-			mail = scmprofile["mail"] if "mail" in scmprofile else None
+			user = ghprofile.user
+			mail = ghprofile.mail
+			token = ghprofile.token if ghprofile.token is not None else self.args.ghtoken
 
-			# get user token
-			token = scmprofile["token"] if "token" in scmprofile else self.args.ghtoken
+			# Add token as a credential
 			if token is not None:
 				ghcredentials = f"{repourl.scheme}://{user}:{token}@{repourl.netloc}"
 				credentials_file = self._engine.join(".git", "." + user + "-credentials")
@@ -142,6 +131,7 @@ class ContainedEnv:
 					cwd = repo_workspace, silent = True
 				)
 
+			# Configure repository user and mail
 			self._engine.bash(
 				cmds = [
 					f"git config --local user.name {user}",
@@ -150,6 +140,14 @@ class ContainedEnv:
 				],
 				cwd = repo_workspace
 			)
+			
+		def __setup_project(self, project:Project):
+			# Step one, clone repositories of the projects
+			for repourl in project.sources:
+				repo_workspace = __clone_repo(self, repourl, project.workspace)
+				__configure_repository(self, repo_workspace, self.config.github_profile)
+
+
 
 		assert self._engine.container is not None
 
@@ -159,39 +157,17 @@ class ContainedEnv:
 		self._engine.bash("git config --global http.sslverify false")
 
 		# Install projects
-		for projname in self.args.projects:
-			if projname not in self._config["projects"].keys():
-				print(f"Project {projname} not found, ignoring.")
+		for project in self.config.projects:
+			if project.name not in self.args.projects:
+				print(f"Project {project.name } not found, ignoring.")
 				continue
-			
-			project = self._config["projects"][projname]
-			# Get source code manager profile
-			profile_found = False
-			if "scmprofile" in project:
-				if project["scmprofile"] in self._config["profiles"].keys():
-					scmprofile = self._config["profiles"][project["scmprofile"]]
-					profile_found = True
-				else:
-					# TODO : call self.__del__ to delete temp folder
-					raise RuntimeError("Cannot find profile " + project["scmprofile"])
 
-			if profile_found:
-				# Add project workspace to the container's bashrc
-				self._engine.register_env(projname.upper(), project["workspace"])
-
-				for repo in project["sources"]:
-					repo_workspace = clone_repo(self, repo, project["workspace"])
-					setup_container_repo(self,
-						repo_workspace = repo_workspace,
-						scmprofile = scmprofile
-					)
-			else:
-				print(f"No profile found for project {projname}, skipping clone.")
-
-			if "setup" in project:
-				for cmd in project["setup"]:
-					#self._engine.evaluate_path(cmd)
-					self._engine.bash(cmd)
+			# Add project workspace to the container's bashrc
+			self._engine.register_env(project.name.upper(), project.workspace)
+			# Clone and configure project's repositories
+			__setup_project(self, project)
+			# Call custom commands of the project in the container (if any)
+			[self._engine.bash(cmd, project.workspace) for cmd in project.container]
 
 
 
@@ -217,7 +193,7 @@ class ContainedEnv:
 				)
 				image = None
 		except Exception as e:
-			print(e)
+			# No existing image found, we thus create a new one
 			image = None
 
 		if image is None:

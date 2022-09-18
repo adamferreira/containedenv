@@ -31,6 +31,8 @@ class GithubProfile(DataClassJsonMixin):
 class Package(DataClassJsonMixin):
     # Package name in the configuration
     name:str
+    # 'Package' required for this package
+    requires:Optional[List[str]] = field(default_factory=list)
     # (Priority 1) Package(s) name(s) in apt repository
     apt_packages:Optional[List[str]] = field(default_factory=list)
     # (Priority 2) Path to a dockerfile to be appended to the containedenv dockerfile
@@ -47,7 +49,7 @@ class Project(DataClassJsonMixin):
     scmprofile:Optional[str] = None
     # Path in the container where the project will be installed
     workspace:Optional[str] = "$PROJECTS"
-    # 'Package' names required for this project
+    # 'Package' required for this project
     requires:Optional[List[str]] = field(default_factory=list)
     # Dockerfile lines to be appended to the containedenv dockerfile
     image:Optional[List[str]] = field(default_factory=list)
@@ -101,7 +103,7 @@ def config_dir() -> str:
     return os.path.join(os.path.dirname(dir_path), "config")
 
 def default_config() -> str:
-    return os.path.join(config_dir(), "default.yml")
+    return os.path.join(config_dir(), "test.yml")
 
 def load_config(config:str = None):
     __config = config if config is not None else default_config()

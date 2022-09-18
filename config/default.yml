@@ -11,6 +11,11 @@ packages:
     name: python39
     dockerfile: python39.dockerfile
   -
+    name: python310
+    apt_packages:
+      - python3
+      - python3-distutils
+  -
     name: julia
     #dockerfile: julia.dockerfile
     image:
@@ -22,17 +27,63 @@ packages:
       - vim
   -
     name: homebrew
+    requires:
+      - $python39
     image:
       - "RUN sudo NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\" \\"
       -     "\tchown -R $USER /home/linuxbrew/"
       - "# Add brew to PATH"
       - "ENV PATH /home/linuxbrew/.linuxbrew/bin:$PATH"
+    apt_packages:
+      # Curl need for homebrew
+      - curl
+      # For zlib.h
+      - libz-dev
   -
     name: ssh
     apt_packages: 
       - ssh
+  -
+    name: custom_python
+    apt_packages:
+      - libssl-dev
+      - openssl
+      - gcc
+      - make
 
 projects:
+  -
+    name: python_setup
+    workspace: /home
+    requires:
+      - $essentials
+      - $custom_python
+    image:
+      - ENV PYTHON_VERSION 3.9.0
+      - ENV PYTHON_ROOT /opt/python/${PYTHON_VERSION}
+      - ENV LD_LIBRARY_PATH ${LD_LIBRARY_PATH}:${PYTHON_ROOT}/lib
+      - ENV PATH ${PATH}:${PYTHON_ROOT}/bin
+    container:
+      # install python
+      - sudo wget https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz
+      - sudo tar xzvf Python-${PYTHON_VERSION}.tgz
+      - sudo chown -R ${USER} Python-${PYTHON_VERSION}
+      - cd Python-${PYTHON_VERSION} && sudo ./configure --enable-optimizations --enable-shared --prefix=/opt/python/${PYTHON_VERSION} && sudo make install -j4
+      - sudo rm -rf Python-${PYTHON_VERSION}.tgz
+      # install pip
+      - python3 -m ensurepip --upgrade
+      - python3 -m pip install --upgrade pip
+      - python3 -m pip install virtualenv
+
+  -
+    name: pyrc
+    workspace: "$PROJECTS"
+    requires:
+      - $essentials
+    sources:
+      - https://github.com/adamferreira/pyrc.git
+    container:
+      - "python3 -m pip install -e /home/aferreira/projects/pyrc"     
   -
     name: containedenv
     sources:
@@ -40,9 +91,20 @@ projects:
     scmprofile: github
 
   -
+    name: soapy
+    workspace: "$PROJECTS"
+    requires:
+      - julia 
+    sources:
+      - https://github.com/adamferreira/Soapy.jl.git
+    scmprofile: github
+    container:
+      - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"    
+
+  -
     name: ssh
     requires:
-      - essentials
+      - $essentials
     image:
       - "EXPOSE 22"
       - "ENV SSHHOME /root/.ssh"
@@ -74,7 +136,6 @@ projects:
     #container:
       # Run the ssh server
       #- sudo /usr/sbin/sshd -D &
-
   -
     name: carbon
     workspace: "$PROJECTS"
@@ -101,28 +162,4 @@ projects:
       # Many Clang/LLVM releases aren't built with options Carbon relies on.
       - brew install llvm
       # Build and run the explorer.
-      - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon
-
-  -
-    name: pyrc
-    workspace: "$PROJECTS"
-    scmprofile: github
-    requires:
-      - git
-      - vim
-      - python
-    sources:
-      - https://github.com/adamferreira/pyrc.git
-    setup:
-      - "pip install -e /home/aferreira/projects/pyrc"
-        
-  -
-    name: soapy
-    workspace: "$PROJECTS"
-    requires:
-      - julia 
-    sources:
-      - https://github.com/adamferreira/Soapy.jl.git
-    scmprofile: github
-    container:
-      - julia --project=$PROJECTS/Soapy.jl -e \"using Pkg; Pkg.instantiate()\"                
+      - cd /home/aferreira/projects/carbon-lang && bazel run //explorer -- ./explorer/testdata/print/format_only.carbon            

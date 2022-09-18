@@ -1,5 +1,4 @@
 # Source : https://github.com/docker-library/python/blob/master/3.9/bullseye/Dockerfile
-
 # http://bugs.python.org/issue19846
 # > At the moment, setting "LANG=C" on a Linux system *fundamentally breaks Python 3*, and that's not OK.
 ENV LANG C.UTF-8
