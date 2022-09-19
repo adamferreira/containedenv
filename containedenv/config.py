@@ -103,7 +103,7 @@ def config_dir() -> str:
     return os.path.join(os.path.dirname(dir_path), "config")
 
 def default_config() -> str:
-    return os.path.join(config_dir(), "test.yml")
+    return os.path.join(config_dir(), "default.yml")
 
 def load_config(config:str = None):
     __config = config if config is not None else default_config()

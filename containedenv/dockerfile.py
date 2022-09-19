@@ -8,7 +8,10 @@ class UbuntuDockerFile(DockerFile):
             dockerfile:str,
             user:str = "root",
         ) -> None:
-        super().__init__(dockerfile)
+        super().__init__(dockerfile, "w+")
+
+        # open file
+        self.open()
 
         # From ubuntu 22 
         self.FROM("ubuntu:22.04")
@@ -39,3 +42,4 @@ class UbuntuDockerFile(DockerFile):
                 f"DEBIAN_FRONTEND=noninteractive apt-get install -y \ \n\t{install}" 
             )
         return self
+        

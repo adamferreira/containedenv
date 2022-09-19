@@ -1,5 +1,5 @@
 app:
-  name: containedenvself._dockerclient
+  name: default
   user: aferreira
 
 github_profile:
@@ -48,8 +48,12 @@ packages:
     apt_packages:
       - libssl-dev
       - openssl
+      # Gcc to compile python
       - gcc
+      # Make to call python compilation
       - make
+      # Needed for --ensure pip
+      - zlib1g-dev
 
 projects:
   -
