@@ -4,7 +4,7 @@ import yaml
 from argparse import Namespace
 from typing import Optional, List, Dict
 from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json, DataClassJsonMixin
+from dataclasses_json import dataclass_json, DataClassJsonMixin, config
 
 
 @dataclass_json
@@ -14,6 +14,11 @@ class AppContainer(DataClassJsonMixin):
     user:str
     # Name of the container to be created
     name:str
+    # Docker image the contained env will be based on
+    imgfrom:Optional[str] = field(
+        default = "ubuntu:22.04",
+        metadata = config(field_name="from")
+    )
 
 @dataclass_json
 @dataclass

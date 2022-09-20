@@ -49,7 +49,9 @@ class ContainedEnv:
 	def __build_dockerfile(self):
 		# Create the dockerfile
 		dockerfile = UbuntuDockerFile(
-			self.local.join(config_dir(), f"Dockerfile.{self.config.appname()}")
+			self.local.join(config_dir(), f"Dockerfile.{self.config.appname()}"),
+			self.config.app.imgfrom,
+			"root"
 		)
 
 		# install utilitary packages

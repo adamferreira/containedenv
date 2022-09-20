@@ -6,7 +6,8 @@ class UbuntuDockerFile(DockerFile):
     def __init__(
             self,
             dockerfile:str,
-            user:str = "root",
+            imgfrom:str,
+            user:str
         ) -> None:
         super().__init__(dockerfile, "w+")
 
@@ -14,16 +15,30 @@ class UbuntuDockerFile(DockerFile):
         self.open()
 
         # From ubuntu 22 
-        self.FROM("ubuntu:22.04")
+        self.FROM(imgfrom)
 
         # Run eveything as root
         self.USER(f"{user}")
 
         # Pkg setup
         self.RUN([
-            "DEBIAN_FRONTEND=noninteractive apt-get update -y",
-            "DEBIAN_FRONTEND=noninteractive apt-get upgrade -y"
+            f"{self.__package_manager()} update -y",
+            f"{self.__package_manager()} upgrade -y"
         ])
+
+        self.image:str = imgfrom.split(":")[0]
+        self.tag:str = imgfrom.split(":")[0]
+
+    def __package_manager(self) -> str:
+        prefix:str = "DEBIAN_FRONTEND=noninteractive"
+        if "debian" in self.image:
+            return f"{prefix} dpkg"
+
+        if "ubuntu" in self.image:
+            return f"{prefix} apt-get"
+
+        if "fedora" in self.image:
+            return f"{prefix} yum"
 
     def install(self, ubuntu_packages:List[str]) -> "UbuntuDockerFile":
         if isinstance(ubuntu_packages, str):
@@ -34,12 +49,12 @@ class UbuntuDockerFile(DockerFile):
         
         if len(ubuntu_packages) == 1:
             self.RUN(
-                f"DEBIAN_FRONTEND=noninteractive apt-get install -y {ubuntu_packages[0]}" 
+                f"{self.__package_manager()} install -y {ubuntu_packages[0]}" 
             )
         else:
             install = " \ \n\t".join(ubuntu_packages)
             self.RUN(
-                f"DEBIAN_FRONTEND=noninteractive apt-get install -y \ \n\t{install}" 
+                f"{self.__package_manager()} install -y \ \n\t{install}" 
             )
         return self
         

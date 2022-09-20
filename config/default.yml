@@ -1,10 +1,11 @@
 app:
   name: default
   user: aferreira
+  from: "ubuntu:22.04"
 
 github_profile:
   user: adamferreira
-  mail: adam.ferreira.dc@gmail.com
+  mail: e.main@github.ccm
 
 packages:
   -
