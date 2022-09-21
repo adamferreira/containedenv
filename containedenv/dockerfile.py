@@ -40,6 +40,9 @@ class UbuntuDockerFile(DockerFile):
         if "fedora" in self.image:
             return f"{prefix} yum"
 
+        if "alpine" in self.image:
+            return f"{prefix} apk"
+
     def install(self, ubuntu_packages:List[str]) -> "UbuntuDockerFile":
         if isinstance(ubuntu_packages, str):
             return self.install([ubuntu_packages])
