@@ -90,6 +90,8 @@ class ContainedEnv:
 		[pkg.install_project_packages(p) for p in self.config.projects]
 		# Run docker commands for projects
 		for project in self.config.projects:
+			if project.name not in self.args.projects:
+				continue
 			dockerfile.writelines(project.image)
 
 
