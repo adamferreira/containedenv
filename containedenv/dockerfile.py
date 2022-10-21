@@ -20,14 +20,14 @@ class UbuntuDockerFile(DockerFile):
         # Run eveything as root
         self.USER(f"{user}")
 
+        self.image:str = imgfrom.split(":")[0]
+        self.tag:str = imgfrom.split(":")[0]
+
         # Pkg setup
         self.RUN([
             f"{self.__package_manager()} update -y",
             f"{self.__package_manager()} upgrade -y"
         ])
-
-        self.image:str = imgfrom.split(":")[0]
-        self.tag:str = imgfrom.split(":")[0]
 
     def __package_manager(self) -> str:
         prefix:str = "DEBIAN_FRONTEND=noninteractive"

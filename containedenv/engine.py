@@ -38,8 +38,6 @@ class ContainedEnv:
 		self._engine = DockerEngine(user = self.config.app.user)
 		self._dockerclient = docker.from_env()
 
-		print(self.config)
-
 	def home(self) -> str:
 		return f"/home/{self.config.app.user}"
 
@@ -163,7 +161,7 @@ class ContainedEnv:
 		# Install projects
 		for project in self.config.projects:
 			if project.name not in self.args.projects:
-				print(f"Project {project.name } not found, ignoring.")
+				print(f"Project {project.name} not found, ignoring.")
 				continue
 
 			# Add project workspace to the container's bashrc
